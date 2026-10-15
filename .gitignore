@@ -1,0 +1,17 @@
+# Environment variables (Sangat penting!)
+.env
+
+# Binary hasil compile Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+tmp/
+main
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
