@@ -2,30 +2,16 @@ package service
 
 import (
 	"errors"
-	"taskflow-api/internal/domain"
+	"taskflow-api/internal/dto"
+	"taskflow-api/internal/model"
 	"taskflow-api/internal/repository"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
-// DTO untuk Request Register
-type RegisterRequest struct {
-	Name     string `json:"name" validate:"required,min=3,max=100"`
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=6"`
-}
-
-// DTO untuk Response User (tanpa field password)
-type UserResponse struct {
-	ID    uint   `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Role  string `json:"role"`
-}
-
 type AuthService interface {
-	Register(req RegisterRequest) (*UserResponse, error)
+	Register(req dto.RegisterRequest) (*dto.UserResponse, error)
 }
 
 type authService struct {
@@ -37,7 +23,7 @@ func NewAuthService(userRepo repository.UserRepository) AuthService {
 	return &authService{userRepo: userRepo}
 }
 
-func (s *authService) Register(req RegisterRequest) (*UserResponse, error) {
+func (s *authService) Register(req dto.RegisterRequest) (*dto.UserResponse, error) {
 	// 1. Cek apakah email sudah terdaftar
 	existingUser, err := s.userRepo.FindByEmail(req.Email)
 	if err == nil && existingUser != nil {
@@ -54,7 +40,7 @@ func (s *authService) Register(req RegisterRequest) (*UserResponse, error) {
 		return nil, err
 	}
 
-	user := domain.User{
+	user := model.User{
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: string(hashedPassword),
@@ -65,7 +51,7 @@ func (s *authService) Register(req RegisterRequest) (*UserResponse, error) {
 		return nil, err
 	}
 
-	return &UserResponse{
+	return &dto.UserResponse{
 		ID:    user.ID,
 		Name:  user.Name,
 		Email: user.Email,

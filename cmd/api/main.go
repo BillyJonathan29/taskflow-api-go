@@ -1,67 +1,47 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"os"
+	"taskflow-api/internal/bootstrap"
 	"taskflow-api/internal/config"
-	delivery "taskflow-api/internal/delivery/http"
-	"taskflow-api/internal/domain"
-	"taskflow-api/internal/repository"
-	"taskflow-api/internal/service"
-	"taskflow-api/pkg/database"
-	"taskflow-api/pkg/utils"
+	"taskflow-api/internal/model"
+	"taskflow-api/router"
 
-	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v2"
 )
 
 func main() {
-	// 1. Inisialisasi Konfigurasi
-	cfg := config.LoadConfig()
+	// 1. Load Environment Variables
+	config.LoadEnv()
 
-	// 2. inisialisasi gorm
-	db := database.NewPostgresGORM(cfg)
+	// 2. Init Database & Redis
+	db := config.InitDB()
+	redisClient := config.InitRedis()
 
-	sqlDB, err := db.DB()
-	if err != nil {
-		log.Fatalf("Gagal mendapatkan sqlDB: %v", err)
+	// Auto Migrate DB
+	if err := db.AutoMigrate(&model.User{}); err != nil {
+		log.Fatalf("AutoMigrate Failed: %v", err)
 	}
-	defer sqlDB.Close()
-
-	// 3. Auto Migrate (GORM akan otomatis membuat tabel 'users' jika belum ada)
-	if err := db.AutoMigrate(&domain.User{}); err != nil {
-		log.Fatalf("Gagal melakukan migrasi table user: %v", err)
-	}
-	// log.Println("Migrasi ke database berhasil")
-
-	userRepo := repository.NewUserRepository(db)
-	authService := service.NewAuthService(userRepo)
-	authHandler := delivery.NewAuthHandler(authService)
-
-	// 4.inisialisasi fiber
-	app := fiber.New()
-
-	app.Get("/health", func(c fiber.Ctx) error {
-
-		return utils.SuccessResponse(c, fiber.StatusOK, "Server is healthy", fiber.Map{
-			"environtment": cfg.AppEnv,
-			"port":         cfg.AppPort,
-		})
-		// dbStatus := "connected"
-		// if err := sqlDB.Ping(); err != nil {
-		// 	dbStatus = "disconected"
-		// }
-
-		// return utils.SuccessResponse(c, fiber.StatusOK, "Server is healthy", fiber.Map{
-		// 	"environment": cfg.AppEnv,
-		// 	"port":        cfg.AppPort,
-		// 	"database":    dbStatus,
-		// })
+	// 3. Wiring Dependencies lewat Bootstrap
+	handlers := bootstrap.InitApp(db, redisClient)
+	// 4. Inisialisasi Fiber
+	app := fiber.New(fiber.Config{
+		AppName: "TaskFlow Appi Core",
 	})
-	v1 := app.Group("/api/v1")
-	authRoutes := v1.Group("/auth")
-	authRoutes.Post("/register", authHandler.Register)
 
-	listerAddr := fmt.Sprintf(":%s", cfg.AppPort)
-	log.Printf("Server berjalan di port %s (%s)", cfg.AppPort, cfg.AppEnv)
-	log.Fatal(app.Listen(listerAddr))
+	// 5. Setup Router
+	router.SetupRouter(&router.RouterConfig{
+		App:         app,
+		AuthHandler: handlers.AuthHandler,
+		RedisClient: redisClient,
+	})
+
+	// 6. Start Server
+	port := os.Getenv("APP_PORT")
+	if port == "" {
+		port = "3000"
+	}
+	log.Printf("Server Aktif di http://localhost:%s\n", port)
+	log.Fatal(app.Listen(":" + port))
 }
