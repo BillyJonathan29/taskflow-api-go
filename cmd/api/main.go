@@ -32,9 +32,10 @@ func main() {
 
 	// 5. Setup Router
 	router.SetupRouter(&router.RouterConfig{
-		App:         app,
-		AuthHandler: handlers.AuthHandler,
-		RedisClient: redisClient,
+		App:          app,
+		AuthHandler:  handlers.AuthHandler,
+		TokenManager: handlers.TokenManager,
+		RedisClient:  redisClient,
 	})
 
 	// 6. Start Server

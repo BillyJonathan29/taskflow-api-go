@@ -12,3 +12,14 @@ type UserResponse struct {
 	Email string `json:"email"`
 	Role  string `json:"role"`
 }
+
+// DTO untuk payload saat user login
+type LoginRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
+}
+
+type LoginResponse struct {
+	Token string       `json:"token"`
+	User  UserResponse `json:"user"`
+}
